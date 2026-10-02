@@ -19,6 +19,14 @@ jobs:
             gcc-14-loongarch64-linux-gnu \
             binutils-loongarch64-linux-gnu \
             bison flex libssl-dev bc device-tree-compiler python3
+          # Ubuntu 交叉 gcc 可执行名带版本后缀（loongarch64-linux-gnu-gcc-14），
+          # 而 U-Boot 的 CROSS_COMPILE=loongarch64-linux-gnu- 需要无后缀名，补齐软链。
+          for t in gcc g++ cpp; do
+            if [ ! -e "/usr/bin/loongarch64-linux-gnu-$t" ] && [ -e "/usr/bin/loongarch64-linux-gnu-$t-14" ]; then
+              sudo ln -sf "/usr/bin/loongarch64-linux-gnu-$t-14" "/usr/bin/loongarch64-linux-gnu-$t"
+            fi
+          done
+          loongarch64-linux-gnu-gcc --version | head -1
 
       - name: 克隆 open-loongarch/u-boot
         run: |
