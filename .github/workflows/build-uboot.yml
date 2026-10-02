@@ -1,0 +1,58 @@
+name: Build Loongson 2K0300 U-Boot
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - name: 安装依赖与 loongarch64 交叉工具链
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            gcc-14-loongarch64-linux-gnu \
+            binutils-loongarch64-linux-gnu \
+            bison flex libssl-dev bc device-tree-compiler python3
+
+      - name: 克隆 open-loongarch/u-boot
+        run: |
+          git clone --depth 1 https://gitee.com/open-loongarch/u-boot.git uboot
+
+      - name: 编译 loongson_2k300_99pi_wifi
+        working-directory: uboot
+        run: |
+          export ARCH=loongarch
+          export CROSS_COMPILE=loongarch64-linux-gnu-
+          make loongson_2k300_99pi_wifi_defconfig
+          make -j"$(nproc)"
+
+      - name: 收集产物
+        working-directory: uboot
+        run: |
+          mkdir -p ../out
+          echo "=== 候选 U-Boot 二进制 ==="
+          find . -maxdepth 4 \( -name 'u-boot*.bin' -o -name 'u-boot*.img' \) -print -exec ls -l {} \;
+          echo "=== 候选 dtb ==="
+          find . -maxdepth 5 -name '*.dtb' -print -exec ls -l {} \;
+          cp -v u-boot-with-spl.bin ../out/ 2>/dev/null || true
+          # 设备树重命名为板级名称，便于作为 U 盘 /update/dtb.bin
+          if [ -f u-boot.dtb ]; then
+            cp -v u-boot.dtb ../out/ls2k300_99pi_wifi.dtb
+          else
+            cp -v arch/loongarch/dts/ls2k300_99pi_wifi.dtb ../out/ 2>/dev/null || true
+          fi
+          echo "=== out ==="
+          ls -l ../out
+
+      - name: 上传 Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: loongson-2k0300-uboot
+          path: out/*
+          if-no-files-found: error
